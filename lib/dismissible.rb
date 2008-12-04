@@ -6,27 +6,32 @@ module Dismissible
   end
   
   module Helpers
-    def dismissible_message(id, opts={}, &block)
-      opts.reverse_merge!({ :message => "Don't show this again.", :class => "dismissible_message", :follows => nil, :style => "" })
-      id = "hide_dismissible_#{id}"
+    def dismissible_message(opts={}, &block)
+      id = params[:controller] + '/' + params[:action]
+      opts.reverse_merge!({ :message => "Закрыть", :class => "helper", :follows => nil, :style => "" })
       
-      return if cookies[id]
+      return if session[id]
       
-      return if opts[:follows] && !cookies["hide_dismissible_#{opts[:follows]}"]
+      unless HelperMessage.show?(id, current_user)
+        session[id] = true
+        return
+      end
+
+      id = "help_message_#{id}"
       
-      concat(content_tag(:div, 
-        capture(&block) + %{<p>#{link_to_dismiss(id,opts)}</p>}, 
+      concat(content_tag(:div,
+        %{<p>#{link_to_dismiss(id,opts)}</p>} + capture(&block), 
         :class => opts[:class], :style => opts[:style], :id => id), 
-        block.binding)    
+        block.binding)
     end
     
     def link_to_dismiss(id, opts)
-      expires = CGI.rfc1123_date(5.years.from_now) # Cookie expires 5 years in the future.
-      link_to_function(opts[:message], dismissal_javascript_for(id, expires), { :class => "dismissible_link" })
+      link_to_function(opts[:message], dismissal_javascript_for(id), { :class => "close" })
     end
     
-    def dismissal_javascript_for(id, expires)
-      "document.cookie = '#{id} = 1; expires=#{expires}; path=/';document.getElementById('#{id}').style.display = 'none'"
+    def dismissal_javascript_for(id)
+      "new Ajax.Request('#{mark_helper_message_path + '/' + params[:controller] + '/' + params[:action]}',
+        {method: 'post', parameters: {_method: 'delete'}}); return $('#{id}').remove() && false"
     end
   end
 end
